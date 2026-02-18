@@ -1,0 +1,207 @@
+basePath: /
+definitions:
+  domain.AnswerType:
+    enum:
+    - kb_answer
+    - action_guidance
+    - unknown
+    type: string
+    x-enum-varnames:
+    - AnswerTypeKB
+    - AnswerTypeActionGuidance
+    - AnswerTypeUnknown
+  domain.Stats:
+    properties:
+      answer_rate:
+        type: number
+      answered_queries:
+        type: integer
+      negative_feedback:
+        type: integer
+      positive_feedback:
+        type: integer
+      total_feedback:
+        type: integer
+      total_queries:
+        type: integer
+      unknown_queries:
+        type: integer
+    type: object
+  http.ChatRequest:
+    properties:
+      message:
+        example: What is Moto?
+        type: string
+      user_id:
+        example: user-123
+        type: string
+    type: object
+  http.ChatResponse:
+    properties:
+      answer_type:
+        allOf:
+        - $ref: '#/definitions/domain.AnswerType'
+        example: kb_answer
+      confidence:
+        example: 0.95
+        type: number
+      response:
+        example: Moto is a ride-hailing app that helps riders request rides, choose
+          pricing modes, and helps drivers receive ride orders.
+        type: string
+      response_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  http.ErrorResponse:
+    properties:
+      error:
+        example: Invalid request body
+        type: string
+    type: object
+  http.FeedbackRequest:
+    properties:
+      comment:
+        example: Very helpful answer!
+        type: string
+      rating:
+        enum:
+        - 1
+        - 2
+        example: 2
+        type: integer
+      response_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  http.HealthResponse:
+    properties:
+      status:
+        example: healthy
+        type: string
+    type: object
+  http.SuccessResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@moto.app
+    name: Moto Team
+  description: |-
+    A conversational Q&A service for the Moto ride-hailing app.
+    Ask Moto answers user questions about Moto's features, pricing modes, and functionality using a knowledge base retrieval system.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Ask Moto API
+  version: "1.0"
+paths:
+  /api/chat:
+    post:
+      consumes:
+      - application/json
+      description: Submit a question and receive an AI-generated response based on
+        the Moto knowledge base
+      parameters:
+      - description: Chat request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response
+          schema:
+            $ref: '#/definitions/http.ChatResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "405":
+          description: Method not allowed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Send a message to Ask Moto
+      tags:
+      - Chat
+  /api/feedback:
+    post:
+      consumes:
+      - application/json
+      description: Submit user feedback (thumbs up/down) on a previous response
+      parameters:
+      - description: Feedback request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.FeedbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Feedback submitted successfully
+          schema:
+            $ref: '#/definitions/http.SuccessResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "405":
+          description: Method not allowed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Submit feedback on a response
+      tags:
+      - Feedback
+  /api/stats:
+    get:
+      description: Retrieve aggregated statistics about queries and feedback
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Statistics retrieved successfully
+          schema:
+            $ref: '#/definitions/domain.Stats'
+        "405":
+          description: Method not allowed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get analytics statistics
+      tags:
+      - Analytics
+  /health:
+    get:
+      description: Check if the service is running and healthy
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/http.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+swagger: "2.0"
+tags:
+- description: Conversational Q&A endpoints
+  name: Chat
+- description: User feedback on responses
+  name: Feedback
+- description: Usage statistics and metrics
+  name: Analytics
+- description: Service health monitoring
+  name: Health

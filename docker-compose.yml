@@ -1,0 +1,35 @@
+services:
+  ask-moto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ask-moto
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - PORT=8080
+      - KB_PATH=/app/data/kb
+      - KB_VERSION=v1
+      - LOGS_PATH=/app/data/logs
+      - TOP_K=5
+      - MIN_RETRIEVAL_SCORE=1.0
+      - INTENT_MIN_CONFIDENCE=0.3
+      - INTENT_MATCH_THRESHOLD=0.7
+      - SAFE_DEFAULT_CONFIDENCE=0.7
+      - QUESTION_OVERLAP_THRESHOLD=0.7
+      - SENTENCE_RELEVANCE_THRESHOLD=0.4
+      - KEYWORD_BOOST_HIGH=3.0
+      - KEYWORD_BOOST_MEDIUM=2.5
+      - KEYWORD_BOOST_LOW=1.5
+    volumes:
+      # Persist logs outside the container
+      - ./data/logs:/app/data/logs
+      # Mount KB for easy updates without rebuilding
+      - ./data/kb:/app/data/kb:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

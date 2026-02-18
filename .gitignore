@@ -1,0 +1,81 @@
+# Binaries and build artifacts
+bin/
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.o
+*.a
+
+# Go specific
+go.work
+go.work.sum
+vendor/
+
+# Claude Code
+.claude/
+.claude*
+CLAUDE.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Logs
+*.log
+data/logs/*.jsonl
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Debug files
+debug
+*.prof
+*.pprof
+cpu.out
+mem.out
+coverage.out
+coverage.html
+
+# Dependency directories
+node_modules/
+
+# Test artifacts
+.coverage/
+htmlcov/

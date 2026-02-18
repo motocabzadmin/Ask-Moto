@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+*.test
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (no need to copy these into the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation (optional, remove if you want docs in image)
+*.md
+!data/kb/*.md
+
+# Environment files (we use ENV in Dockerfile instead)
+.env
+.env.local
+.env.*.local
+
+# Logs (will be created at runtime)
+data/logs/*.jsonl
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
