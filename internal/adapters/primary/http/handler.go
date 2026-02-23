@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/moto/ask-moto/internal/adapters/primary/http/middleware"
 	"github.com/moto/ask-moto/internal/core/domain"
 	"github.com/moto/ask-moto/internal/core/ports"
 )
@@ -100,11 +101,14 @@ func (h *Handler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user ID from authenticated context (set by auth middleware)
+	userID := middleware.GetUserID(r)
+
 	// Create question
 	question := &domain.Question{
 		ID:        uuid.New().String(),
 		Text:      req.Message,
-		UserID:    req.UserID,
+		UserID:    userID,
 		Timestamp: time.Now(),
 	}
 

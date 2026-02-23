@@ -13,6 +13,9 @@ type Config struct {
 	// Server settings
 	Port int
 
+	// JWT Authentication settings
+	JWTSecret string
+
 	// Knowledge Base settings
 	KBPath    string
 	KBVersion string
@@ -49,6 +52,9 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		// Server settings
 		Port: getEnvInt("PORT", 8080),
+
+		// JWT Authentication settings (compatible with motocabz identity service)
+		JWTSecret: getEnvString("JWT_SECRET", "tp54XJqd7sb7vw8dQXgRZcHdv3k3+YI7fUgaPdZStY8="),
 
 		// Knowledge Base settings
 		KBPath:    getEnvString("KB_PATH", "data/kb"),

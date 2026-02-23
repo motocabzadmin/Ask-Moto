@@ -7,12 +7,14 @@ import (
 	"os"
 
 	httphandler "github.com/moto/ask-moto/internal/adapters/primary/http"
+	"github.com/moto/ask-moto/internal/adapters/primary/http/middleware"
 	"github.com/moto/ask-moto/internal/adapters/secondary/intent"
 	"github.com/moto/ask-moto/internal/adapters/secondary/knowledgebase"
 	"github.com/moto/ask-moto/internal/adapters/secondary/logging"
 	"github.com/moto/ask-moto/internal/adapters/secondary/retrieval"
 	"github.com/moto/ask-moto/internal/config"
 	"github.com/moto/ask-moto/internal/core/services"
+	"github.com/moto/ask-moto/internal/identity"
 
 	_ "github.com/moto/ask-moto/docs"
 
@@ -90,9 +92,20 @@ func main() {
 	// Initialize primary adapters (driving adapters)
 	handler := httphandler.NewHandler(chatService, feedbackService, analyticsService)
 
-	// Setup HTTP routes
+	// Initialize identity service for JWT token validation (compatible with motocabz)
+	tokenService := identity.NewTokenService(cfg.JWTSecret)
+	authMiddleware := middleware.AuthMiddleware(tokenService)
+
+	// Setup HTTP routes with authentication middleware
 	mux := http.NewServeMux()
-	handler.SetupRoutes(mux)
+
+	// Protected routes - require authentication (driver/rider token)
+	mux.Handle("/api/chat", authMiddleware(http.HandlerFunc(handler.HandleChat)))
+	mux.Handle("/api/feedback", authMiddleware(http.HandlerFunc(handler.HandleFeedback)))
+
+	// Public routes - no authentication required
+	mux.HandleFunc("/api/stats", handler.HandleStats)
+	mux.HandleFunc("/health", handler.HandleHealth)
 
 	// Swagger documentation
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
