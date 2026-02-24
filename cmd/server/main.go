@@ -10,9 +10,11 @@ import (
 	"github.com/moto/ask-moto/internal/adapters/primary/http/middleware"
 	"github.com/moto/ask-moto/internal/adapters/secondary/intent"
 	"github.com/moto/ask-moto/internal/adapters/secondary/knowledgebase"
+	"github.com/moto/ask-moto/internal/adapters/secondary/llm"
 	"github.com/moto/ask-moto/internal/adapters/secondary/logging"
 	"github.com/moto/ask-moto/internal/adapters/secondary/retrieval"
 	"github.com/moto/ask-moto/internal/config"
+	"github.com/moto/ask-moto/internal/core/ports"
 	"github.com/moto/ask-moto/internal/core/services"
 	"github.com/moto/ask-moto/internal/identity"
 
@@ -84,8 +86,17 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
+	// 5. LLM Client (optional - enabled via config)
+	var llmClient ports.LLMClient
+	if cfg.LLMEnabled && cfg.OpenAIAPIKey != "" {
+		llmClient = llm.NewOpenAIClient(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIMaxTokens)
+		log.Printf("LLM enabled: using %s model", cfg.OpenAIModel)
+	} else if cfg.LLMEnabled {
+		log.Println("Warning: LLM_ENABLED is true but OPENAI_API_KEY is not set")
+	}
+
 	// Initialize application services (core business logic)
-	chatService := services.NewChatService(retriever, classifier, logger, cfg)
+	chatService := services.NewChatService(retriever, classifier, logger, llmClient, cfg)
 	feedbackService := services.NewFeedbackService(logger)
 	analyticsService := services.NewAnalyticsService(logger)
 

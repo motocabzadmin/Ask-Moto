@@ -48,3 +48,9 @@ type IntentClassifier interface {
 	// Classify detects the intent of a question
 	Classify(question string) domain.Intent
 }
+
+// LLMClient defines the output port for LLM operations
+type LLMClient interface {
+	// GenerateResponse generates a response using the LLM with given context
+	GenerateResponse(question string, context string, systemPrompt string) (string, error)
+}

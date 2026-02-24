@@ -41,6 +41,7 @@ type ChatServiceImpl struct {
 	retriever  ports.Retriever
 	classifier ports.IntentClassifier
 	logger     ports.Logger
+	llmClient  ports.LLMClient
 	cfg        *config.Config
 }
 
@@ -49,12 +50,14 @@ func NewChatService(
 	retriever ports.Retriever,
 	classifier ports.IntentClassifier,
 	logger ports.Logger,
+	llmClient ports.LLMClient,
 	cfg *config.Config,
 ) *ChatServiceImpl {
 	return &ChatServiceImpl{
 		retriever:  retriever,
 		classifier: classifier,
 		logger:     logger,
+		llmClient:  llmClient,
 		cfg:        cfg,
 	}
 }
@@ -117,10 +120,43 @@ func (s *ChatServiceImpl) ProcessQuestion(question *domain.Question) *domain.Res
 		}
 	}
 
-	// Step 6: Construct response from top chunk
-	topChunk := scoredChunks[0]
+	// Step 6: Construct response from retrieved chunks
 
-	// Extract the most relevant sentence or section
+	// Collect retrieved chunks
+	var chunks []domain.Chunk
+	for _, sc := range scoredChunks {
+		chunks = append(chunks, *sc.Chunk)
+	}
+
+	// Build context from retrieved chunks
+	var contextBuilder strings.Builder
+	for _, sc := range scoredChunks {
+		contextBuilder.WriteString(sc.Chunk.Content)
+		contextBuilder.WriteString("\n\n")
+	}
+	context := contextBuilder.String()
+
+	// Step 7: If LLM is enabled, use it to generate response
+	if s.cfg.LLMEnabled && s.llmClient != nil {
+		llmResponse, err := s.llmClient.GenerateResponse(question.Text, context, s.cfg.LLMSystemPrompt)
+		if err == nil && llmResponse != "" {
+			response := &domain.Response{
+				ID:              uuid.New().String(),
+				QuestionID:      question.ID,
+				Text:            llmResponse,
+				AnswerType:      domain.AnswerTypeKB,
+				RetrievedChunks: chunks,
+				Confidence:      0.85,
+				Timestamp:       time.Now(),
+			}
+			s.logQuery(question, response, intent.Name)
+			return response
+		}
+		// Fall back to keyword extraction if LLM fails
+	}
+
+	// Step 8: Fall back to keyword-based extraction
+	topChunk := scoredChunks[0]
 	responseText := s.extractBestResponse(question.Text, topChunk.Chunk.Content)
 
 	if responseText == "" {
@@ -134,12 +170,6 @@ func (s *ChatServiceImpl) ProcessQuestion(question *domain.Question) *domain.Res
 		}
 		s.logQuery(question, response, intent.Name)
 		return response
-	}
-
-	// Collect retrieved chunks
-	var chunks []domain.Chunk
-	for _, sc := range scoredChunks {
-		chunks = append(chunks, *sc.Chunk)
 	}
 
 	response := &domain.Response{

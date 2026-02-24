@@ -8,6 +8,17 @@ import (
 	"strings"
 )
 
+// defaultSystemPrompt is the default system prompt for the LLM
+const defaultSystemPrompt = `You are Ask Moto, a helpful assistant for the Moto ride-hailing app.
+You answer user questions about Moto's features, pricing modes, and functionality.
+
+Guidelines:
+- Be concise and helpful
+- Only answer based on the provided knowledge base context
+- If the context doesn't contain the answer, say you don't have that information
+- Do not make up features or information not in the context
+- Keep responses friendly but professional`
+
 // Config holds all application configuration
 type Config struct {
 	// Server settings
@@ -40,6 +51,13 @@ type Config struct {
 	KeywordBoostHigh   float64
 	KeywordBoostMedium float64
 	KeywordBoostLow    float64
+
+	// OpenAI settings
+	OpenAIAPIKey     string
+	OpenAIModel      string
+	OpenAIMaxTokens  int
+	LLMEnabled       bool
+	LLMSystemPrompt  string
 }
 
 // Load loads configuration from environment variables and .env file
@@ -80,6 +98,13 @@ func Load() (*Config, error) {
 		KeywordBoostHigh:   getEnvFloat("KEYWORD_BOOST_HIGH", 3.0),
 		KeywordBoostMedium: getEnvFloat("KEYWORD_BOOST_MEDIUM", 2.5),
 		KeywordBoostLow:    getEnvFloat("KEYWORD_BOOST_LOW", 1.5),
+
+		// OpenAI settings
+		OpenAIAPIKey:    getEnvString("OPENAI_API_KEY", ""),
+		OpenAIModel:     getEnvString("OPENAI_MODEL", "gpt-4o-mini"),
+		OpenAIMaxTokens: getEnvInt("OPENAI_MAX_TOKENS", 500),
+		LLMEnabled:      getEnvBool("LLM_ENABLED", false),
+		LLMSystemPrompt: getEnvString("LLM_SYSTEM_PROMPT", defaultSystemPrompt),
 	}
 
 	return cfg, nil
@@ -170,6 +195,16 @@ func getEnvFloat(key string, defaultVal float64) float64 {
 	if val := os.Getenv(key); val != "" {
 		if floatVal, err := strconv.ParseFloat(val, 64); err == nil {
 			return floatVal
+		}
+	}
+	return defaultVal
+}
+
+// getEnvBool returns a bool environment variable or default
+func getEnvBool(key string, defaultVal bool) bool {
+	if val := os.Getenv(key); val != "" {
+		if boolVal, err := strconv.ParseBool(val); err == nil {
+			return boolVal
 		}
 	}
 	return defaultVal
