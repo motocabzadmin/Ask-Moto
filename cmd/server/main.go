@@ -8,6 +8,8 @@ import (
 
 	httphandler "github.com/moto/ask-moto/internal/adapters/primary/http"
 	"github.com/moto/ask-moto/internal/adapters/primary/http/middleware"
+	"github.com/moto/ask-moto/internal/adapters/secondary/database"
+	"github.com/moto/ask-moto/internal/adapters/secondary/embedding"
 	"github.com/moto/ask-moto/internal/adapters/secondary/intent"
 	"github.com/moto/ask-moto/internal/adapters/secondary/knowledgebase"
 	"github.com/moto/ask-moto/internal/adapters/secondary/llm"
@@ -54,28 +56,84 @@ func main() {
 
 	// Initialize secondary adapters (driven adapters)
 
-	// 1. Knowledge Base Repository
-	log.Println("Loading knowledge base from:", cfg.KBPath)
-	kbStore := knowledgebase.NewFileStore(cfg.KBVersion)
-	if err := kbStore.LoadFromDirectory(cfg.KBPath); err != nil {
-		// Check if directory exists
-		if _, statErr := os.Stat(cfg.KBPath); os.IsNotExist(statErr) {
-			log.Printf("KB directory does not exist: %s. Creating with sample data...", cfg.KBPath)
-			if err := os.MkdirAll(cfg.KBPath, 0755); err != nil {
-				log.Fatalf("Failed to create KB directory: %v", err)
-			}
-			log.Println("Empty KB created. Please add markdown files to:", cfg.KBPath)
-		} else {
-			log.Printf("Warning: Failed to load KB: %v", err)
+	// 1. Knowledge Base Repository and Retriever
+	var kbStore ports.KnowledgeBaseRepository
+	var retriever ports.Retriever
+
+	if cfg.DatabaseEnabled {
+		// Use pgvector-based vector store for semantic search
+		log.Println("Database enabled - using pgvector for semantic search")
+
+		// Initialize database connection pool
+		pool, err := database.NewPostgresPool(cfg.DatabaseURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to database: %v", err)
 		}
+
+		// Run migrations
+		log.Println("Running database migrations...")
+		if err := database.RunMigrations(pool, "migrations"); err != nil {
+			log.Printf("Warning: Migration failed (may already be applied): %v", err)
+		}
+
+		// Initialize embedder
+		if cfg.OpenAIAPIKey == "" {
+			log.Fatal("OPENAI_API_KEY is required when DATABASE_ENABLED=true")
+		}
+		embedder := embedding.NewOpenAIEmbedder(cfg.OpenAIAPIKey, cfg.EmbeddingModel)
+
+		// Initialize vector store
+		vectorStore := knowledgebase.NewVectorStore(pool, embedder, cfg.KBVersion)
+
+		// Check if database is empty and needs seeding
+		empty, err := database.IsEmpty(pool)
+		if err != nil {
+			log.Printf("Warning: Could not check if database is empty: %v", err)
+		}
+
+		if empty {
+			log.Println("Database is empty, loading knowledge base from:", cfg.KBPath)
+			if err := vectorStore.LoadFromDirectory(cfg.KBPath); err != nil {
+				if _, statErr := os.Stat(cfg.KBPath); os.IsNotExist(statErr) {
+					log.Printf("KB directory does not exist: %s. Creating...", cfg.KBPath)
+					if err := os.MkdirAll(cfg.KBPath, 0755); err != nil {
+						log.Fatalf("Failed to create KB directory: %v", err)
+					}
+					log.Println("Empty KB created. Please add markdown files to:", cfg.KBPath)
+				} else {
+					log.Printf("Warning: Failed to load KB: %v", err)
+				}
+			}
+		} else {
+			log.Println("Database already seeded, skipping KB load")
+		}
+
+		kbStore = vectorStore
+		retriever = retrieval.NewVectorRetriever(pool, embedder, cfg)
+		log.Printf("Using vector-based semantic search (model: %s)", cfg.EmbeddingModel)
+	} else {
+		// Use file-based keyword store (original behavior)
+		log.Println("Loading knowledge base from:", cfg.KBPath)
+		fileStore := knowledgebase.NewFileStore(cfg.KBVersion)
+		if err := fileStore.LoadFromDirectory(cfg.KBPath); err != nil {
+			if _, statErr := os.Stat(cfg.KBPath); os.IsNotExist(statErr) {
+				log.Printf("KB directory does not exist: %s. Creating with sample data...", cfg.KBPath)
+				if err := os.MkdirAll(cfg.KBPath, 0755); err != nil {
+					log.Fatalf("Failed to create KB directory: %v", err)
+				}
+				log.Println("Empty KB created. Please add markdown files to:", cfg.KBPath)
+			} else {
+				log.Printf("Warning: Failed to load KB: %v", err)
+			}
+		}
+		kbStore = fileStore
+		retriever = retrieval.NewKeywordRetriever(fileStore, cfg)
+		log.Println("Using keyword-based retrieval")
 	}
 
 	docs := kbStore.GetAllDocuments()
 	chunks := kbStore.GetAllChunks()
 	log.Printf("Loaded %d documents with %d chunks", len(docs), len(chunks))
-
-	// 2. Retriever
-	retriever := retrieval.NewKeywordRetriever(kbStore, cfg)
 
 	// 3. Intent Classifier
 	classifier := intent.NewClassifier(cfg)

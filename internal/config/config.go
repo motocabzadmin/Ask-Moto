@@ -39,13 +39,13 @@ type Config struct {
 	MinRetrievalScore float64
 
 	// Intent classification settings
-	IntentMinConfidence    float64
-	IntentMatchThreshold   float64
-	SafeDefaultConfidence  float64
+	IntentMinConfidence   float64
+	IntentMatchThreshold  float64
+	SafeDefaultConfidence float64
 
 	// Question matching settings
-	QuestionOverlapThreshold    float64
-	SentenceRelevanceThreshold  float64
+	QuestionOverlapThreshold   float64
+	SentenceRelevanceThreshold float64
 
 	// Keyword boost scores
 	KeywordBoostHigh   float64
@@ -53,11 +53,19 @@ type Config struct {
 	KeywordBoostLow    float64
 
 	// OpenAI settings
-	OpenAIAPIKey     string
-	OpenAIModel      string
-	OpenAIMaxTokens  int
-	LLMEnabled       bool
-	LLMSystemPrompt  string
+	OpenAIAPIKey    string
+	OpenAIModel     string
+	OpenAIMaxTokens int
+	LLMEnabled      bool
+	LLMSystemPrompt string
+
+	// Database settings (pgvector)
+	DatabaseURL     string
+	DatabaseEnabled bool
+
+	// Embedding settings
+	EmbeddingModel     string
+	EmbeddingDimension int
 }
 
 // Load loads configuration from environment variables and .env file
@@ -105,6 +113,14 @@ func Load() (*Config, error) {
 		OpenAIMaxTokens: getEnvInt("OPENAI_MAX_TOKENS", 500),
 		LLMEnabled:      getEnvBool("LLM_ENABLED", false),
 		LLMSystemPrompt: getEnvString("LLM_SYSTEM_PROMPT", defaultSystemPrompt),
+
+		// Database settings (pgvector)
+		DatabaseURL:     getEnvString("DATABASE_URL", "postgres://askmoto:askmoto@localhost:5432/askmoto"),
+		DatabaseEnabled: getEnvBool("DATABASE_ENABLED", false),
+
+		// Embedding settings
+		EmbeddingModel:     getEnvString("EMBEDDING_MODEL", "text-embedding-3-small"),
+		EmbeddingDimension: getEnvInt("EMBEDDING_DIMENSION", 1536),
 	}
 
 	return cfg, nil

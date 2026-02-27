@@ -54,3 +54,11 @@ type LLMClient interface {
 	// GenerateResponse generates a response using the LLM with given context
 	GenerateResponse(question string, context string, systemPrompt string) (string, error)
 }
+
+// Embedder defines the output port for text embedding operations
+type Embedder interface {
+	// Embed generates a vector embedding for a single text
+	Embed(text string) ([]float32, error)
+	// EmbedBatch generates vector embeddings for multiple texts
+	EmbedBatch(texts []string) ([][]float32, error)
+}

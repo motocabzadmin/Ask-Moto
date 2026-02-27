@@ -1,9 +1,31 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ask-moto-postgres
+    environment:
+      POSTGRES_USER: askmoto
+      POSTGRES_PASSWORD: askmoto
+      POSTGRES_DB: askmoto
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askmoto -d askmoto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   ask-moto:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ask-moto
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PORT:-8080}:8080"
     environment:
@@ -12,7 +34,7 @@ services:
       - KB_VERSION=v1
       - LOGS_PATH=/app/data/logs
       - TOP_K=5
-      - MIN_RETRIEVAL_SCORE=1.0
+      - MIN_RETRIEVAL_SCORE=0.3
       - INTENT_MIN_CONFIDENCE=0.3
       - INTENT_MATCH_THRESHOLD=0.7
       - SAFE_DEFAULT_CONFIDENCE=0.7
@@ -21,11 +43,19 @@ services:
       - KEYWORD_BOOST_HIGH=3.0
       - KEYWORD_BOOST_MEDIUM=2.5
       - KEYWORD_BOOST_LOW=1.5
+      # Database settings (set DATABASE_ENABLED=true to use pgvector)
+      - DATABASE_URL=postgres://askmoto:askmoto@postgres:5432/askmoto
+      - DATABASE_ENABLED=${DATABASE_ENABLED:-false}
+      # Embedding settings (requires OPENAI_API_KEY when DATABASE_ENABLED=true)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - EMBEDDING_MODEL=text-embedding-3-small
     volumes:
       # Persist logs outside the container
       - ./data/logs:/app/data/logs
       # Mount KB for easy updates without rebuilding
       - ./data/kb:/app/data/kb:ro
+      # Mount migrations
+      - ./migrations:/app/migrations:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -33,3 +63,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+
+volumes:
+  pgdata:
